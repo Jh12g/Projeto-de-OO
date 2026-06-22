@@ -213,3 +213,6 @@ if fatura:
     print(f"Fatura gerada! Valor: R${fatura.valor_total:.2f} | Status: {fatura.status_pagamento}")
     fatura.registrar_pagamento()
     print(f"Pagamento recebido. Novo status: {fatura.status_pagamento}")
+
+
+# Apenas um comentario pra dizer q é complicado da commit ave maria
