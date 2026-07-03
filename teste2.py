@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, date, time
- 
+
+# --- CLASSES BASES E HERANÇA ---
 
 class Pessoa(ABC):
     def __init__(self, nome, cpf, idade):
@@ -63,7 +64,7 @@ class Medico(Funcionario):
         return f"[Médico] Dr(a). {self.nome} - {self.especialidade} (CRM: {self.__crm})"
 
 
-#  PRONTUÁRIO E PACIENTES 
+# --- PRONTUÁRIO E PACIENTES (COMPOSIÇÃO E HERANÇA) ---
 
 class ProntuarioMedico:
     def __init__(self, id_prontuario):
@@ -115,7 +116,7 @@ class PacienteEspecial(Paciente):
         return f"[Paciente Especial] {self.nome} - Tratamento: {self.doenca_cronica} | Plano: {self.__plano_saude}"
 
 
-# GESTÃO DA CLÍNICA, AGENDAMENTO E FATURA
+# --- GESTÃO DA CLÍNICA, AGENDAMENTO E FATURAMENTO ---
 
 class Agendamento:
     def __init__(self, id_agendamento, data_ag, hora_ag, medico, paciente):
@@ -172,7 +173,7 @@ class SetorFaturamento:
             valor = agendamento.medico.custo_consulta
             # Se for Paciente Especial, o valor vai para o plano de saúde (simulado zerando para o paciente)
             if isinstance(agendamento.paciente, PacienteEspecial):
-                print(f" Consulta coberta pelo plano de saúde: {agendamento.paciente.plano_saude}.")
+                print(f"ℹ️ Consulta coberta pelo plano de saúde: {agendamento.paciente.plano_saude}.")
                 valor = 0.0
             return Fatura(id_fatura=101, valor_total=valor)
         return None
@@ -212,7 +213,7 @@ class Clinica:
         return self.__pacientes
 
 
-#  MENU 
+# --- MENU INTERATIVO ---
 
 def iniciar_sistema():
     clinica = Clinica()
@@ -230,7 +231,7 @@ def iniciar_sistema():
 
     while True:
         print("\n" + "="*45)
-        print(" GESTÃO DE CLÍNICA ")
+        print("🏥 SISTEMA DE GESTÃO DE CLÍNICA 🏥")
         print("="*45)
         print("1. Cadastrar Médico")
         print("2. Cadastrar Paciente (Comum ou Especial)")
@@ -258,7 +259,7 @@ def iniciar_sistema():
                 
                 novo_medico = Medico(nome, cpf, idade, salario, escala, crm, especialidade, custo)
                 clinica.cadastrar_medico(novo_medico)
-                print(" Médico cadastrado com sucesso!")
+                print("✅ Médico cadastrado com sucesso!")
 
             elif opcao == "2":
                 print("\n--- NOVO PACIENTE ---")
@@ -275,7 +276,7 @@ def iniciar_sistema():
                     novo_paciente = Paciente(nome, cpf, idade, doenca)
                     
                 clinica.cadastrar_paciente(novo_paciente)
-                print(f" {novo_paciente.detalhar_perfil()} cadastrado com sucesso!")
+                print(f"✅ {novo_paciente.detalhar_perfil()} cadastrado com sucesso!")
 
             elif opcao == "3":
                 print("\n--- NOVO FUNCIONÁRIO ---")
@@ -287,11 +288,11 @@ def iniciar_sistema():
                 
                 novo_func = Funcionario(nome, cpf, idade, salario, escala)
                 clinica.cadastrar_funcionario(novo_func)
-                print(" Funcionário cadastrado com sucesso!")
+                print("✅ Funcionário cadastrado com sucesso!")
 
             elif opcao == "4":
                 if not clinica.medicos or not clinica.pacientes:
-                    print(" É necessário ter ao menos um médico e um paciente cadastrados.")
+                    print("❌ É necessário ter ao menos um médico e um paciente cadastrados.")
                     continue
 
                 print("\n--- PACIENTES ---")
@@ -315,12 +316,12 @@ def iniciar_sistema():
                 agendamento = clinica.realizar_agendamento(
                     data_agendamento, hora_agendamento, med_escolhido, pac_escolhido
                 )
-                print(f" Consulta marcada para {data_agendamento.strftime('%d/%m/%Y')} às {hora_agendamento.strftime('%H:%M')}!")
+                print(f"✅ Consulta marcada para {data_agendamento.strftime('%d/%m/%Y')} às {hora_agendamento.strftime('%H:%M')}!")
 
             elif opcao == "5":
                 pendentes = clinica.buscar_agendamentos_pendentes()
                 if not pendentes:
-                    print(" Não há consultas pendentes.")
+                    print("❌ Não há consultas pendentes.")
                     continue
                 
                 print("\n--- CONSULTAS PENDENTES ---")
@@ -341,7 +342,7 @@ def iniciar_sistema():
                 if nova_fatura:
                     faturas_abertas.append(nova_fatura)
                 
-                print(" Consulta finalizada e prontuário atualizado!")
+                print("✅ Consulta finalizada e prontuário atualizado!")
 
             elif opcao == "6":
                 print("\n--- VISUALIZAR PRONTUÁRIO ---")
@@ -350,7 +351,7 @@ def iniciar_sistema():
                 escolha_pac = int(input("Selecione o paciente: ")) - 1
                 paciente = clinica.pacientes[escolha_pac]
                 
-                print(f"\n Prontuário de {paciente.nome} (CPF: {paciente.cpf}):")
+                print(f"\n📄 Prontuário de {paciente.nome} (CPF: {paciente.cpf}):")
                 historico = paciente.prontuario.historico
                 if not historico:
                     print("Nenhum registro encontrado.")
@@ -362,7 +363,7 @@ def iniciar_sistema():
                 faturas_pendentes = [f for f in faturas_abertas if f.status_pagamento == "Aberta"]
                 
                 if not faturas_pendentes:
-                    print(" Não há faturas em aberto no momento.")
+                    print("❌ Não há faturas em aberto no momento.")
                     continue
 
                 print(f"\n--- PAGAMENTO DE FATURAS ---")
@@ -373,16 +374,16 @@ def iniciar_sistema():
                 fatura_atual = faturas_pendentes[escolha_fat]
 
                 if fatura_atual.valor_total == 0:
-                    print(" Esta fatura tem valor R$0.00 (Coberta por Plano de Saúde). Baixando automaticamente.")
+                    print("✅ Esta fatura tem valor R$0.00 (Coberta por Plano de Saúde). Baixando automaticamente.")
                     fatura_atual.registrar_pagamento()
                 else:
                     print("1. Cartão de Crédito | 2. PIX | 3. Dinheiro")
                     forma_pgto = input("Escolha a forma de pagamento: ")
                     if forma_pgto in ["1", "2", "3"]:
                         fatura_atual.registrar_pagamento()
-                        print(" Pagamento confirmado!")
+                        print("✅ Pagamento confirmado!")
                     else:
-                        print(" Opção inválida.")
+                        print("❌ Opção inválida.")
 
             elif opcao == "8":
                 print("Encerrando o sistema... Até logo!")
