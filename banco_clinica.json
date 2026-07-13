@@ -1,0 +1,90 @@
+{
+    "contador_id": 2,
+    "funcionarios": [
+        {
+            "nome": "jorge",
+            "cpf": "21345678",
+            "idade": 40,
+            "salario": 20000.0,
+            "escala": "tarde"
+        }
+    ],
+    "medicos": [
+        {
+            "nome": "Gregory House",
+            "cpf": "999.888-77",
+            "idade": 50,
+            "salario": 15000,
+            "escala": "Integral",
+            "crm": "CRM/SP 123",
+            "especialidade": "Infectologia",
+            "custo_consulta": 800.0
+        },
+        {
+            "nome": "gabriel",
+            "cpf": "123456789",
+            "idade": 21,
+            "salario": 100000.0,
+            "escala": "manha",
+            "crm": "5",
+            "especialidade": "cardiologia",
+            "custo_consulta": 130.0
+        },
+        {
+            "nome": "victor",
+            "cpf": "123456789",
+            "idade": 21,
+            "salario": 20000.0,
+            "escala": "manha",
+            "crm": "123",
+            "especialidade": "cardiologia ",
+            "custo_consulta": 130.0
+        }
+    ],
+    "pacientes": [
+        {
+            "nome": "Gabriel",
+            "cpf": "111.222.333-44",
+            "idade": 25,
+            "doenca_cronica": "Nenhuma",
+            "prontuario": [
+                "[13/07/2026 11:18] dor muita dor"
+            ],
+            "tipo": "Comum"
+        },
+        {
+            "nome": "Mariana",
+            "cpf": "555.666.777-88",
+            "idade": 30,
+            "doenca_cronica": "Asma",
+            "prontuario": [],
+            "tipo": "Especial",
+            "plano_saude": "Unimed"
+        },
+        {
+            "nome": "micaella",
+            "cpf": "123456789",
+            "idade": 19,
+            "doenca_cronica": "nenhuma",
+            "prontuario": [],
+            "tipo": "Comum"
+        }
+    ],
+    "agendamentos": [
+        {
+            "id": 1,
+            "data": "19/08/2026",
+            "hora": "16:30",
+            "medico_cpf": "123456789",
+            "paciente_cpf": "111.222.333-44",
+            "status": "Concluida"
+        }
+    ],
+    "faturas": [
+        {
+            "id": 101,
+            "valor_total": 130.0,
+            "status_pagamento": "Paga"
+        }
+    ]
+}

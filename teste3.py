@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from datetime import datetime, date, time
- 
+import json
+import os
 
 class Pessoa(ABC):
     def __init__(self, nome, cpf, idade):
@@ -15,6 +16,10 @@ class Pessoa(ABC):
     @property
     def cpf(self):
         return self._cpf
+        
+    @property
+    def idade(self):
+        return self._idade
 
     @abstractmethod
     def detalhar_perfil(self):
@@ -29,6 +34,10 @@ class Funcionario(Pessoa):
     @property
     def salario(self):
         return self.__salario
+
+    @property
+    def escala(self):
+        return self.__escala
 
     @salario.setter
     def salario(self, novo_salario):
@@ -46,6 +55,10 @@ class Medico(Funcionario):
         self.__crm = crm
         self.__especialidade = especialidade
         self.__custo_consulta = custo_consulta
+
+    @property
+    def crm(self):
+        return self.__crm
 
     @property
     def especialidade(self):
@@ -75,8 +88,16 @@ class ProntuarioMedico:
         self.__anotacoes.append(f"[{agora}] {nota}")
 
     @property
+    def id_prontuario(self):
+        return self.__id
+
+    @property
     def historico(self):
         return self.__anotacoes
+        
+    @historico.setter
+    def historico(self, lista_notas):
+        self.__anotacoes = lista_notas
 
 class Paciente(Pessoa):
     def __init__(self, nome, cpf, idade, doenca_cronica):
@@ -100,7 +121,6 @@ class Paciente(Pessoa):
     def detalhar_perfil(self):
         return f"[Paciente] {self.nome} - Tratamento para: {self.doenca_cronica}"
 
-# Nova Classe: Herda de Paciente e adiciona Plano de Saúde
 class PacienteEspecial(Paciente):
     def __init__(self, nome, cpf, idade, doenca_cronica, plano_saude):
         super().__init__(nome, cpf, idade, doenca_cronica)
@@ -110,7 +130,6 @@ class PacienteEspecial(Paciente):
     def plano_saude(self):
         return self.__plano_saude
 
-    # Polimorfismo
     def detalhar_perfil(self):
         return f"[Paciente Especial] {self.nome} - Tratamento: {self.doenca_cronica} | Plano: {self.__plano_saude}"
 
@@ -118,13 +137,17 @@ class PacienteEspecial(Paciente):
 # GESTÃO DA CLÍNICA, AGENDAMENTO E FATURA
 
 class Agendamento:
-    def __init__(self, id_agendamento, data_ag, hora_ag, medico, paciente):
+    def __init__(self, id_agendamento, data_ag, hora_ag, medico, paciente, status="Pendente"):
         self.__id = id_agendamento
-        self.__data = data_ag
-        self.__hora = hora_ag
-        self.__medico = medico
-        self.__paciente = paciente
-        self.__status = "Pendente"
+        self.__data = data_ag  # Espera objeto datetime.date
+        self.__hora = hora_ag  # Espera objeto datetime.time
+        self.__medico = medico  # Instância de Medico
+        self.__paciente = paciente  # Instância de Paciente ou PacienteEspecial
+        self.__status = status
+
+    @property
+    def id_agendamento(self):
+        return self.__id
 
     @property
     def medico(self):
@@ -150,10 +173,14 @@ class Agendamento:
         self.__status = "Concluida"
 
 class Fatura:
-    def __init__(self, id_fatura, valor_total):
+    def __init__(self, id_fatura, valor_total, status_pagamento="Aberta"):
         self.__id = id_fatura
         self.__valor_total = valor_total
-        self.__status_pagamento = "Aberta"
+        self.__status_pagamento = status_pagamento
+
+    @property
+    def id_fatura(self):
+        return self.__id
 
     @property
     def valor_total(self):
@@ -167,14 +194,13 @@ class Fatura:
         self.__status_pagamento = "Paga"
 
 class SetorFaturamento:
-    def gerar_fatura(self, agendamento):
+    def gerar_fatura(self, agendamento, id_custom=101):
         if agendamento.status == "Concluida":
             valor = agendamento.medico.custo_consulta
-            # Se for Paciente Especial, o valor vai para o plano de saúde (simulado zerando para o paciente)
             if isinstance(agendamento.paciente, PacienteEspecial):
                 print(f" Consulta coberta pelo plano de saúde: {agendamento.paciente.plano_saude}.")
                 valor = 0.0
-            return Fatura(id_fatura=101, valor_total=valor)
+            return Fatura(id_fatura=id_custom, valor_total=valor)
         return None
 
 class Clinica:
@@ -184,6 +210,7 @@ class Clinica:
         self.__funcionarios = []
         self.__agendamentos = []
         self.__contador_id = 1
+        self.ARQUIVO_DB = "banco_clinica.json"
 
     def cadastrar_medico(self, medico):
         self.__medicos.append(medico)
@@ -194,10 +221,12 @@ class Clinica:
     def cadastrar_funcionario(self, funcionario):
         self.__funcionarios.append(funcionario)
 
-    def realizar_agendamento(self, data_ag, hora_ag, medico, paciente):
-        agendamento = Agendamento(self.__contador_id, data_ag, hora_ag, medico, paciente)
+    def realizar_agendamento(self, data_ag, hora_ag, medico, paciente, id_custom=None, status="Pendente"):
+        id_atual = id_custom if id_custom is not None else self.__contador_id
+        agendamento = Agendamento(id_atual, data_ag, hora_ag, medico, paciente, status)
         self.__agendamentos.append(agendamento)
-        self.__contador_id += 1
+        if id_custom is None:
+            self.__contador_id += 1
         return agendamento
     
     def buscar_agendamentos_pendentes(self):
@@ -211,22 +240,151 @@ class Clinica:
     def pacientes(self):
         return self.__pacientes
 
+    @property
+    def funcionarios(self):
+        return self.__funcionarios
+
+    @property
+    def agendamentos(self):
+        return self.__agendamentos
+
+    # === SISTEMA DE PERSISTÊNCIA JSON ===
+
+    def salvar_dados(self, faturas):
+        """Converte todas as listas de objetos em dicionários e salva no arquivo JSON."""
+        dados = {
+            "contador_id": self.__contador_id,
+            "funcionarios": [],
+            "medicos": [],
+            "pacientes": [],
+            "agendamentos": [],
+            "faturas": []
+        }
+
+        # 1. Funcionários
+        for f in self.__funcionarios:
+            # Evita duplicar médicos que também são funcionários na lista base
+            dados["funcionarios"].append({
+                "nome": f.nome, "cpf": f.cpf, "idade": f.idade,
+                "salario": f.salario, "escala": f.escala
+            })
+
+        # 2. Médicos
+        for m in self.__medicos:
+            dados["medicos"].append({
+                "nome": m.nome, "cpf": m.cpf, "idade": m.idade,
+                "salario": m.salario, "escala": m.escala, "crm": m.crm,
+                "especialidade": m.especialidade, "custo_consulta": m.custo_consulta
+            })
+
+        # 3. Pacientes
+        for p in self.__pacientes:
+            p_dict = {
+                "nome": p.nome, "cpf": p.cpf, "idade": p.idade,
+                "doenca_cronica": p.doenca_cronica,
+                "prontuario": p.prontuario.historico,
+                "tipo": "Especial" if isinstance(p, PacienteEspecial) else "Comum"
+            }
+            if isinstance(p, PacienteEspecial):
+                p_dict["plano_saude"] = p.plano_saude
+            dados["pacientes"].append(p_dict)
+
+        # 4. Agendamentos (Salvamos os CPFs em vez dos objetos completos)
+        for ag in self.__agendamentos:
+            dados["agendamentos"].append({
+                "id": ag.id_agendamento,
+                "data": ag.data.strftime("%d/%m/%Y"),
+                "hora": ag.hora.strftime("%H:%M"),
+                "medico_cpf": ag.medico.cpf,
+                "paciente_cpf": ag.paciente.cpf,
+                "status": ag.status
+            })
+
+        # 5. Faturas
+        for fat in faturas:
+            dados["faturas"].append({
+                "id": fat.id_fatura,
+                "valor_total": fat.valor_total,
+                "status_pagamento": fat.status_pagamento
+            })
+
+        with open(self.ARQUIVO_DB, "w", encoding="utf-8") as f:
+            json.dump(dados, f, indent=4, ensure_ascii=False)
+        print("\n Dados salvos com sucesso!")
+
+    def carregar_dados(self):
+        """Lê o arquivo JSON e reconstrói os objetos em memória."""
+        if not os.path.exists(self.ARQUIVO_DB):
+            return [] # Retorna uma lista de faturas vazia se o arquivo não existir
+
+        with open(self.ARQUIVO_DB, "r", encoding="utf-8") as f:
+            try:
+                dados = json.load(f)
+            except json.JSONDecodeError:
+                return []
+
+        self.__contador_id = dados.get("contador_id", 1)
+
+        # 1. Recriar Funcionários
+        for f in dados.get("funcionarios", []):
+            self.cadastrar_funcionario(Funcionario(f["nome"], f["cpf"], f["idade"], f["salario"], f["escala"]))
+
+        # 2. Recriar Médicos
+        for m in dados.get("medicos", []):
+            self.cadastrar_medico(Medico(m["nome"], m["cpf"], m["idade"], m["salario"], m["escala"], m["crm"], m["especialidade"], m["custo_consulta"]))
+
+        # 3. Recriar Pacientes e seus Prontuários
+        for p in dados.get("pacientes", []):
+            if p["tipo"] == "Especial":
+                novo_p = PacienteEspecial(p["nome"], p["cpf"], p["idade"], p["doenca_cronica"], p["plano_saude"])
+            else:
+                novo_p = Paciente(p["nome"], p["cpf"], p["idade"], p["doenca_cronica"])
+            novo_p.prontuario.historico = p["prontuario"]
+            self.cadastrar_paciente(novo_p)
+
+        # Helper para buscar objetos por CPF durante a reconstrução das relações
+        dict_medicos = {m.cpf: m for m in self.__medicos}
+        dict_pacientes = {p.cpf: p for p in self.__pacientes}
+
+        # 4. Recriar Agendamentos vinculando os objetos corretos através do CPF
+        for ag in dados.get("agendamentos", []):
+            medico_obj = dict_medicos.get(ag["medico_cpf"])
+            paciente_obj = dict_pacientes.get(ag["paciente_cpf"])
+            
+            if medico_obj and paciente_obj:
+                data_obj = datetime.strptime(ag["data"], "%d/%m/%Y").date()
+                hora_obj = datetime.strptime(ag["hora"], "%H:%M").time()
+                self.realizar_agendamento(data_obj, hora_obj, medico_obj, paciente_obj, id_custom=ag["id"], status=ag["status"])
+
+        # 5. Recriar Faturas (precisa ser retornado para o escopo do menu)
+        lista_faturas = []
+        for fat in dados.get("faturas", []):
+            lista_faturas.append(Fatura(fat["id"], fat["valor_total"], fat["status_pagamento"]))
+            
+        print("\n Banco de dados carregado com sucesso!")
+        return lista_faturas
+
 
 #  MENU 
 
 def iniciar_sistema():
     clinica = Clinica()
     financeiro = SetorFaturamento()
-    faturas_abertas = []
+    
+    # Tenta carregar dados existentes, se não houver, inicia vazio ou com os padrões
+    faturas_abertas = clinica.carregar_dados()
 
-    # Cadastros prévios para o sistema não iniciar vazio
-    paciente_comum = Paciente("Gabriel", "111.222.333-44", 25, "Nenhuma")
-    paciente_esp = PacienteEspecial("Mariana", "555.666.777-88", 30, "Asma", "Unimed")
-    dr_house = Medico("Gregory House", "999.888-77", 50, 15000, "Integral", "CRM/SP 123", "Infectologia", 800.00)
+    # Caso o arquivo não exista (primeira execução), cadastra os dados padrão
+    if not os.path.exists(clinica.ARQUIVO_DB):
+        print("Criando banco de dados inicial com registros padrão...")
+        paciente_comum = Paciente("Gabriel", "111.222.333-44", 25, "Nenhuma")
+        paciente_esp = PacienteEspecial("Mariana", "555.666.777-88", 30, "Asma", "Unimed")
+        dr_house = Medico("Gregory House", "999.888-77", 50, 15000, "Integral", "CRM/SP 123", "Infectologia", 800.00)
 
-    clinica.cadastrar_paciente(paciente_comum)
-    clinica.cadastrar_paciente(paciente_esp)
-    clinica.cadastrar_medico(dr_house)
+        clinica.cadastrar_paciente(paciente_comum)
+        clinica.cadastrar_paciente(paciente_esp)
+        clinica.cadastrar_medico(dr_house)
+        clinica.salvar_dados(faturas_abertas)
 
     while True:
         print("\n" + "="*45)
@@ -258,6 +416,7 @@ def iniciar_sistema():
                 
                 novo_medico = Medico(nome, cpf, idade, salario, escala, crm, especialidade, custo)
                 clinica.cadastrar_medico(novo_medico)
+                clinica.salvar_dados(faturas_abertas) # Salva as alterações
                 print(" Médico cadastrado com sucesso!")
 
             elif opcao == "2":
@@ -275,6 +434,7 @@ def iniciar_sistema():
                     novo_paciente = Paciente(nome, cpf, idade, doenca)
                     
                 clinica.cadastrar_paciente(novo_paciente)
+                clinica.salvar_dados(faturas_abertas) # Salva as alterações
                 print(f" {novo_paciente.detalhar_perfil()} cadastrado com sucesso!")
 
             elif opcao == "3":
@@ -287,6 +447,7 @@ def iniciar_sistema():
                 
                 novo_func = Funcionario(nome, cpf, idade, salario, escala)
                 clinica.cadastrar_funcionario(novo_func)
+                clinica.salvar_dados(faturas_abertas) # Salva as alterações
                 print(" Funcionário cadastrado com sucesso!")
 
             elif opcao == "4":
@@ -315,6 +476,7 @@ def iniciar_sistema():
                 agendamento = clinica.realizar_agendamento(
                     data_agendamento, hora_agendamento, med_escolhido, pac_escolhido
                 )
+                clinica.salvar_dados(faturas_abertas) # Salva as alterações
                 print(f" Consulta marcada para {data_agendamento.strftime('%d/%m/%Y')} às {hora_agendamento.strftime('%H:%M')}!")
 
             elif opcao == "5":
@@ -336,11 +498,13 @@ def iniciar_sistema():
                 consulta_atual.paciente.prontuario.adicionar_nota(sintomas)
                 consulta_atual.confirmar_atendimento()
                 
-                # Gera fatura e adiciona na lista de faturas
-                nova_fatura = financeiro.gerar_fatura(consulta_atual)
+                # Gera fatura com um ID baseado no tamanho atual da lista para não fixar em 101 sempre
+                id_fatura_gerada = 100 + len(faturas_abertas) + 1
+                nova_fatura = financeiro.gerar_fatura(consulta_atual, id_custom=id_fatura_gerada)
                 if nova_fatura:
                     faturas_abertas.append(nova_fatura)
                 
+                clinica.salvar_dados(faturas_abertas) # Salva prontuário, status e faturas novas
                 print(" Consulta finalizada e prontuário atualizado!")
 
             elif opcao == "6":
@@ -367,7 +531,7 @@ def iniciar_sistema():
 
                 print(f"\n--- PAGAMENTO DE FATURAS ---")
                 for i, fat in enumerate(faturas_pendentes):
-                    print(f"{i + 1}. Fatura ID {fat._Fatura__id} | Valor: R${fat.valor_total:.2f}")
+                    print(f"{i + 1}. Fatura ID {fat.id_fatura} | Valor: R${fat.valor_total:.2f}")
                 
                 escolha_fat = int(input("Selecione a fatura para pagar: ")) - 1
                 fatura_atual = faturas_pendentes[escolha_fat]
@@ -383,6 +547,8 @@ def iniciar_sistema():
                         print(" Pagamento confirmado!")
                     else:
                         print(" Opção inválida.")
+                
+                clinica.salvar_dados(faturas_abertas) # Salva alteração de status da fatura
 
             elif opcao == "8":
                 print("Encerrando o sistema... Até logo!")
@@ -391,10 +557,8 @@ def iniciar_sistema():
             else:
                 print(" Opção inválida! Escolha um número do menu.")
 
-        except (ValueError, IndexError):
-            print("\n Erro: Entrada inválida. Certifique-se de digitar números quando solicitado ou no formato correto (Ex: data em DD/MM/AAAA).")
+        except (ValueError, IndexError) as e:
+            print(f"\n Erro: Entrada inválida. Certifique-se de digitar opções válidas. ({e})")
 
 if __name__ == "__main__":
     iniciar_sistema()
-
-    # usar git e github é um saco as vezes kk
